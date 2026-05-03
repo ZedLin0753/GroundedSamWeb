@@ -1,0 +1,13 @@
+.git
+__pycache__
+*.pyc
+*.pyd
+*.pyo
+*.pt
+*.pth
+*.onnx
+!weights/README.md
+outputs
+output
+input
+*.zip

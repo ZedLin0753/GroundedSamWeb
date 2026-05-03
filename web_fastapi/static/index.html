@@ -1,0 +1,268 @@
+<!doctype html><!-- 使用 HTML5 文件模式，避免瀏覽器進入相容模式。 -->
+<html lang="zh-Hant"><!-- 指定頁面主要語言為繁體中文。 -->
+<head><!-- 開始文件標頭區。 -->
+  <meta charset="utf-8"><!-- 使用 UTF-8，確保中文不會變成問號或亂碼。 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- 讓頁面在不同螢幕寬度下可以正常縮放。 -->
+  <title>半自動標註工具 WebUI</title><!-- 設定瀏覽器分頁標題。 -->
+  <style><!-- 開始內嵌 CSS，讓這個 WebUI 不需要 npm build。 -->
+    :root { --ink: #17212b; --muted: #5f6f7d; --line: #d6e0e7; --panel: #f7fafc; --accent: #0f8b8d; --accent2: #f59e0b; --danger: #c03535; --canvas: #151a1f; }/* 定義整個頁面共用的顏色變數。 */
+    * { box-sizing: border-box; }/* 讓元素寬高計算包含 padding 與 border，版面比較穩定。 */
+    body { margin: 0; font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif; color: var(--ink); background: #edf2f5; }/* 設定頁面基本字型、文字顏色與背景。 */
+    header { padding: 14px 18px; background: #102027; color: white; display: flex; align-items: center; justify-content: space-between; }/* 設定頂部標題列。 */
+    header h1 { margin: 0; font-size: 20px; }/* 設定主標題大小。 */
+    header span { color: #b9ccd4; font-size: 13px; }/* 設定右側副標題樣式。 */
+    main { display: grid; grid-template-columns: 320px minmax(480px, 1fr) 390px; gap: 12px; padding: 12px; min-height: calc(100vh - 54px); }/* 建立左中右三欄版面。 */
+    section { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }/* 設定每個操作面板的外觀。 */
+    h2 { font-size: 16px; margin: 0 0 10px; }/* 設定區塊標題。 */
+    label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }/* 設定表單標籤樣式。 */
+    input, select, button { width: 100%; font: inherit; border: 1px solid var(--line); border-radius: 7px; padding: 8px; background: white; color: var(--ink); }/* 統一輸入框、選單與按鈕基本樣式。 */
+    button { cursor: pointer; background: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; font-weight: 700; }/* 設定主要按鈕，使用 !important 避免瀏覽器或舊樣式蓋掉文字顏色。 */
+    button.secondary { background: #eef4f6 !important; color: var(--ink) !important; border-color: var(--line) !important; }/* 設定次要按鈕，使用淺色底深色字。 */
+    button.warning { background: var(--accent2) !important; color: #1f1600 !important; border-color: var(--accent2) !important; }/* 設定提醒型按鈕。 */
+    button.danger { background: var(--danger) !important; color: #ffffff !important; border-color: var(--danger) !important; }/* 設定刪除或清空類按鈕。 */
+    button:disabled { opacity: .45; cursor: not-allowed; }/* 設定 disabled 按鈕狀態。 */
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }/* 建立兩欄小型表單列。 */
+    .image-list { height: 250px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: var(--panel); }/* 設定圖片清單容器。 */
+    .image-item { padding: 7px; border-radius: 7px; cursor: pointer; font-size: 13px; word-break: break-all; }/* 設定單張圖片項目。 */
+    .image-item.active { background: #d8f3f0; outline: 2px solid var(--accent); }/* 設定目前選取圖片的高亮樣式。 */
+    .canvas-wrap { height: calc(100vh - 112px); min-height: 560px; background: var(--canvas); border-radius: 10px; overflow: hidden; position: relative; }/* 設定畫布容器。 */
+    canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }/* 設定畫布元素，預設顯示十字游標。 */
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }/* 設定說明文字。 */
+    .status { white-space: pre-wrap; min-height: 90px; max-height: 190px; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 12px; }/* 設定狀態輸出框。 */
+    .box-list { height: 150px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: var(--panel); }/* 設定 bbox 清單容器。 */
+    .box-item { padding: 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }/* 設定單個 bbox 項目。 */
+    .box-item.active { background: #fff1cc; outline: 2px solid var(--accent2); }/* 設定目前選取 bbox 的高亮樣式。 */
+    .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }/* 設定手動與半自動模式切換列。 */
+    .mode-row button.active { background: var(--accent2) !important; border-color: var(--accent2) !important; color: #1f1600 !important; }/* 設定目前模式按鈕的高亮樣式。 */
+    .download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }/* 設定下載按鈕列。 */
+    .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }/* 設定快捷操作按鈕列。 */
+    .canvas-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }/* 設定畫布下方的 bbox 快捷操作按鈕列。 */
+    .floating-toolbar { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 99999; display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; padding: 12px; background: rgba(16, 32, 39, .94); border: 2px solid #f59e0b; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }/* 固定在畫面底部的操作列，避免按鈕被捲動位置藏住。 */
+    .floating-toolbar button { min-height: 46px; font-size: 16px; background: transparent !important; color: #ffffff !important; border-color: transparent !important; }/* 統一底部浮動操作列按鈕字體顏色與底色。 */
+    .floating-toolbar button:hover:not(:disabled) { background: rgba(255, 255, 255, .12) !important; color: #ffffff !important; }/* 統一浮動操作列 hover 狀態。 */
+    .floating-toolbar button:disabled { background: rgba(255, 255, 255, .16) !important; color: #ffffff !important; opacity: .45; }/* 統一浮動操作列 disabled 狀態，避免黑字看不清楚。 */
+    .mode-select { border: 2px solid var(--accent); font-weight: 800; font-size: 16px; margin-bottom: 10px; background: #ffffff; color: var(--ink); }/* 設定工作模式下拉選單，確保一定看得到半自動選項。 */
+    .mode-button { min-height: 44px; font-size: 16px; border: 2px solid var(--line) !important; background: #ffffff !important; color: #101820 !important; }/* 設定模式按鈕為白底黑字，避免文字消失。 */
+    .mode-button.active { background: var(--accent2) !important; color: #101820 !important; border-color: var(--accent2) !important; }/* 設定目前模式按鈕高亮。 */
+    .hidden { display: none; }/* 提供隱藏元素用的 class。 */
+    @media (max-width: 1220px) { main { grid-template-columns: 300px 1fr; } .right { grid-column: 1 / -1; } }/* 中等寬度下把右側設定面板移到下一列。 */
+  </style><!-- 結束內嵌 CSS。 -->
+</head><!-- 結束文件標頭區。 -->
+<body><!-- 開始文件內容區。 -->
+  <header><!-- 開始頂部標題列。 -->
+    <h1>半自動標註工具 WebUI</h1><!-- 顯示工具名稱。 -->
+    <span id="buildVersion">FastAPI + Canvas bbox editor</span><!-- 顯示目前版本技術資訊。 -->
+  </header><!-- 結束頂部標題列。 -->
+  <main><!-- 開始主版面。 -->
+    <section class="left"><!-- 開始左側資料集面板。 -->
+      <h2>資料集 Dataset</h2><!-- 顯示資料集標題。 -->
+      <label>伺服器端圖片資料夾 Server folder</label><!-- 標示伺服器端資料夾輸入欄位。 -->
+      <input id="folderPath" placeholder="例如 D:\work\images"><!-- 讓使用者輸入執行程式那台電腦上的資料夾路徑。 -->
+      <button id="loadFolderBtn" class="secondary">載入資料夾</button><!-- 使用次要按鈕樣式，避免白底白字。 -->
+      <label>選擇幾張圖片 Upload selected images</label><!-- 標示多張圖片上傳欄位。 -->
+      <input id="uploadImages" type="file" multiple accept="image/*"><!-- 讓使用者選擇多張圖片。 -->
+      <button id="uploadImagesBtn" class="secondary">上傳選取圖片</button><!-- 上傳多張使用者選取的圖片。 -->
+      <label>選擇整個資料夾 Upload a folder</label><!-- 標示資料夾上傳欄位。 -->
+      <input id="uploadFolder" type="file" multiple webkitdirectory directory accept="image/*"><!-- 讓使用者選擇整個資料夾。 -->
+      <button id="uploadFolderBtn" class="secondary">上傳資料夾</button><!-- 上傳使用者選取的資料夾內容。 -->
+      <p class="hint">遠端使用者可以上傳自己電腦的圖片；伺服器端資料夾只讀取執行程式那台電腦的路徑。</p><!-- 說明本機路徑與遠端上傳的差異。 -->
+      <div id="datasetStatus" class="hint">尚未載入資料集。</div><!-- 顯示目前資料集狀態。 -->
+      <div class="quick-actions"><!-- 開始資料集快捷操作列。 -->
+        <button id="removeImageTopBtn" class="danger">刪除目前圖片</button><!-- 從目前資料集中移除當前圖片。 -->
+        <button id="clearDatasetBtn" class="danger">清空資料集</button><!-- 清空整個前端資料集。 -->
+      </div><!-- 結束資料集快捷操作列。 -->
+      <div id="imageList" class="image-list"></div><!-- 放置圖片清單。 -->
+      <div class="row"><!-- 開始上一張下一張按鈕列。 -->
+        <button id="prevBtn" class="secondary">上一張</button><!-- 切換到上一張圖片。 -->
+        <button id="nextBtn" class="secondary">下一張</button><!-- 切換到下一張圖片。 -->
+      </div><!-- 結束上一張下一張按鈕列。 -->
+      <button id="removeImageBtn" class="danger">刪除目前圖片</button><!-- 從目前資料集中移除當前圖片。 -->
+      <button id="clearBoxesBtn" class="danger">清空目前標註框</button><!-- 清空當前圖片的標註框。 -->
+    </section><!-- 結束左側資料集面板。 -->
+    <section class="center"><!-- 開始中央畫布面板。 -->
+      <h2>圖片與框 Image Canvas</h2><!-- 顯示畫布標題。 -->
+      <div class="canvas-wrap"><canvas id="canvas"></canvas></div><!-- 建立圖片與 bbox 互動畫布。 -->
+      <div class="canvas-actions"><!-- 開始畫布快捷操作列。 -->
+        <button id="deleteSelectedBoxTopBtn" class="danger">刪除選取框</button><!-- 刪除目前選取的 bbox。 -->
+        <button id="clearBoxesTopBtn" class="danger">清空目前標註框</button><!-- 清空目前圖片的全部 bbox。 -->
+        <button id="saveTopBtn">儲存目前標註</button><!-- 快速儲存目前圖片標註。 -->
+      </div><!-- 結束畫布快捷操作列。 -->
+      <p class="hint">滾輪縮放。半自動模式：拖曳空白處新增框，拖曳框本體移動，拖曳邊角調整大小；按住 Shift 拖曳可平移畫面。手動 SAM 模式：點圖片產生 SAM 候選框。</p><!-- 說明滑鼠操作方式。 -->
+    </section><!-- 結束中央畫布面板。 -->
+    <section class="right"><!-- 開始右側操作面板。 -->
+      <label>工作模式 Workflow mode</label><!-- 標示工作模式下拉選單。 -->
+      <select id="workflowModeSelect" class="mode-select"><option value="auto">半自動 Grounded-SAM</option><option value="manual">手動 SAM</option></select><!-- 提供一定可見的模式切換入口。 -->
+      <div class="mode-row"><!-- 開始模式切換列。 -->
+        <button id="manualModeBtn" class="mode-button">手動 SAM</button><!-- 切換到手動 SAM 模式。 -->
+        <button id="autoModeBtn" class="mode-button">半自動 Grounded-SAM</button><!-- 切換到半自動 bbox 模式。 -->
+      </div><!-- 結束模式切換列。 -->
+      <div id="manualPanel" class="hidden"><!-- 開始手動 SAM 面板。 -->
+        <h2>手動 SAM Manual SAM</h2><!-- 顯示手動 SAM 標題。 -->
+        <p class="hint">點圖片產生 SAM 候選框，確認可用後按「接受候選框」，最後按「儲存目前標註並匯出」。</p><!-- 說明手動 SAM 操作流程。 -->
+        <button id="saveManualBtn">儲存目前標註並匯出</button><!-- 儲存手動標註並匯出資料集。 -->
+        <div id="candidateStatus" class="hint">尚無候選框。</div><!-- 顯示目前 SAM 候選框狀態。 -->
+      </div><!-- 結束手動 SAM 面板。 -->
+      <div id="autoPanel"><!-- 開始半自動面板。 -->
+        <h2>半自動 Grounded-SAM</h2><!-- 顯示半自動標題。 -->
+        <label>Prompt</label><!-- 標示 Prompt 輸入欄位。 -->
+        <input id="promptInput"><!-- 輸入 GroundingDINO prompt。 -->
+        <label>YOLO / COCO 類別名 Class name</label><!-- 標示類別名稱輸入欄位。 -->
+        <input id="classInput"><!-- 輸入輸出資料集的類別名稱。 -->
+        <label>輸出位置 Output root</label><!-- 標示輸出位置輸入欄位。 -->
+        <input id="outputRootInput"><!-- 輸入伺服器端輸出資料夾。 -->
+        <label>輸出格式 Export format</label><!-- 標示輸出格式選單。 -->
+        <select id="formatSelect"></select><!-- 選擇 YOLO 或 COCO 輸出格式。 -->
+        <div class="row"><!-- 開始裝置與 Rows 參數列。 -->
+          <div><label>裝置 Device</label><select id="deviceSelect"><option>auto</option><option>cuda</option><option>cpu</option></select></div><!-- 選擇推論裝置。 -->
+          <div><label>Rows</label><input id="rowsInput" type="number" min="1" max="12" value="3"></div><!-- 設定切圖列數。 -->
+        </div><!-- 結束裝置與 Rows 參數列。 -->
+        <div class="row"><!-- 開始 Cols 與 Max Det 參數列。 -->
+          <div><label>Cols</label><input id="colsInput" type="number" min="1" max="12" value="3"></div><!-- 設定切圖欄數。 -->
+          <div><label>Max Det</label><input id="maxDetInput" type="number" min="1" max="500" value="20"></div><!-- 設定每個 tile 最大偵測數。 -->
+        </div><!-- 結束 Cols 與 Max Det 參數列。 -->
+        <div class="row"><!-- 開始閾值列。 -->
+          <div><label>Box Th</label><input id="boxThInput" type="number" step="0.01" value="0.18"></div><!-- 設定 bbox threshold。 -->
+          <div><label>Text Th</label><input id="textThInput" type="number" step="0.01" value="0.18"></div><!-- 設定 text threshold。 -->
+        </div><!-- 結束閾值列。 -->
+        <div class="row"><!-- 開始 NMS 參數列。 -->
+          <div><label>Tile NMS</label><input id="tileNmsInput" type="number" step="0.01" value="0.60"></div><!-- 設定 tile 內 NMS threshold。 -->
+          <div><label>Global NMS</label><input id="globalNmsInput" type="number" step="0.01" value="0.50"></div><!-- 設定全圖 NMS threshold。 -->
+        </div><!-- 結束 NMS 參數列。 -->
+        <div class="row"><!-- 開始面積參數列。 -->
+          <div><label>Min Area</label><input id="minAreaInput" type="number" min="0" value="500"></div><!-- 設定最小 bbox 面積。 -->
+          <div><label>操作提示</label><button id="fitImageBtn" class="secondary">重置視圖</button></div><!-- 提供重置視圖按鈕。 -->
+        </div><!-- 結束面積參數列。 -->
+        <div class="row"><!-- 開始執行按鈕列。 -->
+          <button id="runCurrentBtn">執行目前圖片</button><!-- 對目前圖片執行半自動標註。 -->
+          <button id="runBatchBtn" class="secondary">批次執行全部</button><!-- 對資料集全部圖片執行半自動標註。 -->
+        </div><!-- 結束執行按鈕列。 -->
+        <div class="row"><!-- 開始半自動下載按鈕列。 -->
+          <button id="autoDownloadRunBtn" class="secondary" disabled>下載半自動單張結果</button><!-- 下載目前半自動單張推論結果 ZIP。 -->
+          <button id="autoDownloadDatasetBtn" class="secondary" disabled>下載半自動資料集</button><!-- 下載目前半自動輸出資料集 ZIP。 -->
+        </div><!-- 結束半自動下載按鈕列。 -->
+        <h2>框編輯 BBox Edit</h2><!-- 顯示 bbox 編輯標題。 -->
+        <div id="boxList" class="box-list"></div><!-- 顯示目前圖片的 bbox 清單。 -->
+        <div class="row"><!-- 開始左上座標列。 -->
+          <div><label>x1</label><input id="x1Input" type="number"></div><!-- 編輯 bbox 左側座標。 -->
+          <div><label>y1</label><input id="y1Input" type="number"></div><!-- 編輯 bbox 上側座標。 -->
+        </div><!-- 結束左上座標列。 -->
+        <div class="row"><!-- 開始右下座標列。 -->
+          <div><label>x2</label><input id="x2Input" type="number"></div><!-- 編輯 bbox 右側座標。 -->
+          <div><label>y2</label><input id="y2Input" type="number"></div><!-- 編輯 bbox 下側座標。 -->
+        </div><!-- 結束右下座標列。 -->
+        <div class="row"><!-- 開始 bbox 操作按鈕列。 -->
+          <button id="applyBoxBtn" class="secondary">套用座標</button><!-- 套用座標欄位到目前選取框。 -->
+          <button id="deleteBoxBtn" class="danger">刪除選取框</button><!-- 刪除目前選取框。 -->
+        </div><!-- 結束 bbox 操作按鈕列。 -->
+        <button id="saveBtn">儲存目前標註並匯出</button><!-- 儲存目前標註並匯出資料集。 -->
+      </div><!-- 結束半自動面板。 -->
+      <h2>狀態 Status</h2><!-- 顯示狀態標題。 -->
+      <div id="statusBox" class="status">等待操作。</div><!-- 顯示執行狀態。 -->
+      <div class="download-grid"><!-- 開始下載按鈕列。 -->
+        <button id="downloadRunBtn" class="secondary" disabled>下載單張結果</button><!-- 下載單張推論結果 ZIP。 -->
+        <button id="downloadDatasetBtn" class="secondary" disabled>下載資料集</button><!-- 下載目前輸出資料集 ZIP。 -->
+      </div><!-- 結束下載按鈕列。 -->
+    </section><!-- 結束右側操作面板。 -->
+  </main><!-- 結束主版面。 -->
+  <div class="floating-toolbar"><!-- 開始固定浮動操作列。 -->
+    <button id="floatRemoveImageBtn" class="danger" type="button">刪除目前圖片</button><!-- 從目前資料集中移除當前圖片。 -->
+    <button id="floatClearDatasetBtn" class="danger" type="button">清空資料集</button><!-- 清空整個前端資料集。 -->
+    <button id="floatAcceptCandidateBtn" class="warning" type="button">接受候選框</button><!-- 從浮動工具列接受目前 SAM 候選框。 -->
+    <button id="floatDeleteBoxBtn" class="danger" type="button">刪除選取框</button><!-- 刪除目前選取的 bbox。 -->
+    <button id="floatClearBoxesBtn" class="danger" type="button">清空目前標註框</button><!-- 清空目前圖片的全部 bbox。 -->
+    <button id="floatSaveBtn" type="button">儲存目前標註</button><!-- 快速儲存目前圖片標註。 -->
+    <button id="floatDownloadRunBtn" class="secondary" type="button" disabled>下載單張結果</button><!-- 從浮動工具列下載單張推論結果 ZIP。 -->
+    <button id="floatDownloadDatasetBtn" class="secondary" type="button" disabled>下載資料集</button><!-- 從浮動工具列下載目前資料集 ZIP。 -->
+  </div><!-- 結束固定浮動操作列。 -->
+  <script><!-- 開始前端 JavaScript。 -->
+    const state = { session: null, images: [], currentIndex: -1, image: null, annotations: [], annotationCache: {}, selected: -1, manualCandidate: null, mode: "auto", scale: 1, offsetX: 0, offsetY: 0, drag: null, downloads: {} }; // 集中保存前端狀態。
+    const $ = (id) => document.getElementById(id); // 用 id 取得 DOM 元素。
+    const canvas = $("canvas"); // 取得畫布元素。
+    const ctx = canvas.getContext("2d"); // 取得 2D 繪圖 context。
+    function setStatus(text) { $("statusBox").textContent = text; } // 覆蓋狀態文字。
+    function ensureRequiredControls() { ensureDatasetActionButtons(); ensureCanvasActionButtons(); } // 啟動時強制補上必要按鈕，避免瀏覽器載到舊 HTML 時功能消失。
+    function ensureDatasetActionButtons() { if ($("clearDatasetBtn") && $("removeImageTopBtn")) return; const status = $("datasetStatus"); if (!status) return; const container = document.createElement("div"); container.className = "quick-actions"; container.innerHTML = '<button id="removeImageTopBtn" class="danger" type="button">刪除目前圖片</button><button id="clearDatasetBtn" class="danger" type="button">清空資料集</button>'; status.insertAdjacentElement("afterend", container); } // 在資料集狀態下方強制補上刪圖與清空資料集按鈕。
+    function ensureCanvasActionButtons() { if ($("deleteSelectedBoxTopBtn") && $("clearBoxesTopBtn") && $("saveTopBtn")) return; const wrap = document.querySelector(".canvas-wrap"); if (!wrap) return; const container = document.createElement("div"); container.className = "canvas-actions"; container.innerHTML = '<button id="deleteSelectedBoxTopBtn" class="danger" type="button">刪除選取框</button><button id="clearBoxesTopBtn" class="danger" type="button">清空目前標註框</button><button id="saveTopBtn" type="button">儲存目前標註</button>'; wrap.insertAdjacentElement("afterend", container); } // 在圖片畫布下方強制補上刪框、清框與儲存按鈕。
+    function bindRequiredControls() { $("removeImageTopBtn").onclick = removeCurrentImage; $("clearDatasetBtn").onclick = clearDataset; $("deleteSelectedBoxTopBtn").onclick = deleteSelectedBox; $("clearBoxesTopBtn").onclick = clearBoxes; $("saveTopBtn").onclick = () => saveEdited().catch(error => setStatus(error.message)); $("floatRemoveImageBtn").onclick = removeCurrentImage; $("floatClearDatasetBtn").onclick = clearDataset; $("floatAcceptCandidateBtn").onclick = acceptCandidate; $("floatDeleteBoxBtn").onclick = deleteSelectedBox; $("floatClearBoxesBtn").onclick = clearBoxes; $("floatSaveBtn").onclick = () => saveEdited().catch(error => setStatus(error.message)); $("floatDownloadRunBtn").onclick = () => downloadUrl(state.downloads.run_zip_url); $("floatDownloadDatasetBtn").onclick = () => downloadUrl(state.downloads.dataset_zip_url); } // 將強制補上的按鈕、接受候選框、下載按鈕與浮動操作列綁定到既有功能。
+    function appendStatus(text) { $("statusBox").textContent += "\n" + text; } // 追加狀態文字。
+    function checkResponse(response) { if (!response.ok) { return response.json().then(data => { throw new Error(data.detail || response.statusText); }); } return response.json(); } // 將 API 錯誤轉成可讀訊息。
+    function apiJson(url, body) { return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(checkResponse); } // 發送 JSON POST 請求。
+    function resizeCanvas() { const rect = canvas.getBoundingClientRect(); canvas.width = Math.max(1, Math.floor(rect.width)); canvas.height = Math.max(1, Math.floor(rect.height)); draw(); } // 讓 canvas 實際解析度跟顯示大小一致。
+    function currentImageRecord() { return state.images[state.currentIndex] || null; } // 取得目前圖片資料。
+    function currentImageId() { const record = currentImageRecord(); return record ? record.id : ""; } // 取得目前圖片 id。
+    function parseTiles() { return { rows: parseInt($("rowsInput").value || "3", 10), cols: parseInt($("colsInput").value || "3", 10) }; } // 讀取分開設定的 Rows 與 Cols。
+    function cloneAnnotations(annotations) { return JSON.parse(JSON.stringify(annotations || [])); } // 深拷貝標註資料，避免切圖時互相污染。
+    function saveCurrentAnnotationsToCache() { const imageId = currentImageId(); if (imageId) state.annotationCache[imageId] = cloneAnnotations(state.annotations); } // 將目前圖片標註暫存到前端 cache。
+    function loadCurrentAnnotationsFromCache() { const imageId = currentImageId(); state.annotations = cloneAnnotations(state.annotationCache[imageId] || []); state.selected = state.annotations.length ? 0 : -1; } // 從前端 cache 還原目前圖片標註。
+    async function loadConfig() { const config = await fetch("/api/config?t=" + Date.now()).then(checkResponse); $("buildVersion").textContent = `FastAPI + Canvas bbox editor | ${config.version || "unknown"}`; $("promptInput").value = config.defaults.prompt; $("classInput").value = config.defaults.class_name; $("outputRootInput").value = config.defaults.output_root; $("formatSelect").innerHTML = config.export_formats.map(format => `<option>${format}</option>`).join(""); } // 載入後端預設值、版本與輸出格式。
+    async function loadFolder() { setStatus("正在載入伺服器端資料夾..."); const session = await apiJson("/api/dataset/from-folder", { folder_path: $("folderPath").value }); applySession(session); } // 從伺服器端資料夾建立資料集。
+    async function uploadFromInput(inputId) { const files = $(inputId).files; if (!files.length) { setStatus("請先選擇圖片或資料夾。"); return; } const form = new FormData(); Array.from(files).forEach(file => form.append("files", file)); setStatus("正在上傳圖片..."); const session = await fetch("/api/dataset/upload", { method: "POST", body: form }).then(checkResponse); applySession(session); } // 從指定 file input 上傳圖片。
+    function applySession(session) { state.session = session; state.images = session.images || []; state.currentIndex = state.images.length ? 0 : -1; state.annotationCache = {}; state.annotations = []; state.selected = -1; state.manualCandidate = null; state.downloads = {}; $("datasetStatus").textContent = `已載入 ${state.images.length} 張圖片。`; renderImageList(); loadCurrentImage(); renderDownloadButtons(); setStatus("資料集已載入。"); } // 套用新資料集 session。
+    function renderImageList() { $("imageList").innerHTML = state.images.map((image, index) => `<div class="image-item ${index === state.currentIndex ? "active" : ""}" data-index="${index}">${index + 1}. ${image.name}</div>`).join("") || "<div class='hint'>尚無圖片。</div>"; document.querySelectorAll(".image-item").forEach(item => item.onclick = () => selectImage(parseInt(item.dataset.index, 10))); } // 重繪圖片清單。
+    function selectImage(index) { saveCurrentAnnotationsToCache(); state.currentIndex = index; state.manualCandidate = null; loadCurrentAnnotationsFromCache(); renderImageList(); renderBoxList(); syncCoordinateInputs(); loadCurrentImage(); } // 切換目前圖片並保留各圖標註。
+    function removeCurrentImage() { if (state.currentIndex < 0) return; const removed = state.images.splice(state.currentIndex, 1)[0]; if (removed) delete state.annotationCache[removed.id]; state.currentIndex = Math.min(state.currentIndex, state.images.length - 1); state.annotations = []; state.selected = -1; state.manualCandidate = null; $("datasetStatus").textContent = `目前資料集剩下 ${state.images.length} 張圖片。`; renderImageList(); renderBoxList(); syncCoordinateInputs(); loadCurrentImage(); setStatus("已從目前資料集中移除圖片。"); } // 從前端資料集移除目前圖片。
+    function clearDataset() { if (!state.images.length) return; if (!confirm("確定要清空目前資料集嗎？這只會清除瀏覽器中的清單，不會刪除原始檔案。")) return; state.session = null; state.images = []; state.currentIndex = -1; state.image = null; state.annotations = []; state.annotationCache = {}; state.selected = -1; state.manualCandidate = null; state.downloads = {}; $("datasetStatus").textContent = "尚未載入資料集。"; renderImageList(); renderBoxList(); syncCoordinateInputs(); renderDownloadButtons(); draw(); setStatus("已清空資料集。"); } // 清空前端目前資料集，不刪除硬碟原始檔案。
+    function loadCurrentImage() { const record = currentImageRecord(); if (!record) { state.image = null; draw(); return; } const image = new Image(); image.onload = () => { state.image = image; fitImage(); draw(); }; image.src = record.url + "?t=" + Date.now(); } // 載入目前圖片到 canvas。
+    function fitImage() { if (!state.image) return; const sx = canvas.width / state.image.width; const sy = canvas.height / state.image.height; state.scale = Math.min(sx, sy) * 0.96; state.offsetX = (canvas.width - state.image.width * state.scale) / 2; state.offsetY = (canvas.height - state.image.height * state.scale) / 2; } // 將圖片縮放到畫布內。
+    function imageToScreen(x, y) { return { x: x * state.scale + state.offsetX, y: y * state.scale + state.offsetY }; } // 將圖片座標轉為畫布座標。
+    function screenToImage(x, y) { return { x: (x - state.offsetX) / state.scale, y: (y - state.offsetY) / state.scale }; } // 將畫布座標轉為圖片座標。
+    function clampBox(box) { if (!state.image) return box; const x1 = Math.max(0, Math.min(state.image.width, Math.min(box[0], box[2]))); const y1 = Math.max(0, Math.min(state.image.height, Math.min(box[1], box[3]))); const x2 = Math.max(0, Math.min(state.image.width, Math.max(box[0], box[2]))); const y2 = Math.max(0, Math.min(state.image.height, Math.max(box[1], box[3]))); return [Math.round(x1), Math.round(y1), Math.round(x2), Math.round(y2)]; } // 限制 bbox 在圖片範圍內並整理 xyxy 順序。
+    function bboxToPolygon(box) { return [box[0], box[1], box[2], box[1], box[2], box[3], box[0], box[3]]; } // 將 bbox 轉成矩形 polygon，提供 segmentation fallback。
+    function draw() { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = "#151a1f"; ctx.fillRect(0, 0, canvas.width, canvas.height); if (!state.image) return; ctx.drawImage(state.image, state.offsetX, state.offsetY, state.image.width * state.scale, state.image.height * state.scale); state.annotations.forEach((annotation, index) => drawBox(annotation.bbox, index === state.selected, index)); if (state.manualCandidate) drawCandidate(state.manualCandidate.bbox); if (state.drag && state.drag.hit.type === "create") drawCandidate(state.drag.previewBox); } // 重繪圖片、已接受框、候選框與新增框預覽。
+    function drawBox(box, active, index) { const a = imageToScreen(box[0], box[1]); const b = imageToScreen(box[2], box[3]); ctx.strokeStyle = active ? "#f59e0b" : "#00d1d1"; ctx.lineWidth = active ? 3 : 2; ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); ctx.fillStyle = active ? "#f59e0b" : "#00d1d1"; ctx.fillRect(a.x, Math.max(0, a.y - 20), 96, 18); ctx.fillStyle = "#101820"; ctx.font = "12px sans-serif"; ctx.fillText(`#${index + 1}`, a.x + 5, Math.max(12, a.y - 7)); if (active) drawHandles(box); } // 繪製單個 bbox。
+    function drawCandidate(box) { if (!box) return; const a = imageToScreen(box[0], box[1]); const b = imageToScreen(box[2], box[3]); ctx.save(); ctx.strokeStyle = "#ffe45e"; ctx.lineWidth = 3; ctx.setLineDash([8, 5]); ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); ctx.restore(); } // 繪製候選框或新增框預覽。
+    function drawHandles(box) { handlePoints(box).forEach(point => { ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#f59e0b"; ctx.fillRect(point.x - 5, point.y - 5, 10, 10); ctx.strokeRect(point.x - 5, point.y - 5, 10, 10); }); } // 繪製目前選取框的調整點。
+    function handlePoints(box) { const lt = imageToScreen(box[0], box[1]); const rb = imageToScreen(box[2], box[3]); const mx = (lt.x + rb.x) / 2; const my = (lt.y + rb.y) / 2; return [{ name: "nw", x: lt.x, y: lt.y }, { name: "n", x: mx, y: lt.y }, { name: "ne", x: rb.x, y: lt.y }, { name: "e", x: rb.x, y: my }, { name: "se", x: rb.x, y: rb.y }, { name: "s", x: mx, y: rb.y }, { name: "sw", x: lt.x, y: rb.y }, { name: "w", x: lt.x, y: my }]; } // 產生 bbox 八個調整點。
+    function hitTest(x, y) { if (state.selected >= 0 && state.annotations[state.selected]) { const handle = handlePoints(state.annotations[state.selected].bbox).find(point => Math.abs(point.x - x) <= 9 && Math.abs(point.y - y) <= 9); if (handle) return { type: "resize", index: state.selected, handle: handle.name }; } for (let index = state.annotations.length - 1; index >= 0; index--) { const box = state.annotations[index].bbox; const a = imageToScreen(box[0], box[1]); const b = imageToScreen(box[2], box[3]); if (x >= a.x && x <= b.x && y >= a.y && y <= b.y) return { type: "move", index }; } return { type: "create" }; } // 判斷滑鼠是否點到調整點、框本體或空白新增區。
+    function setSelected(index) { state.selected = index; renderBoxList(); syncCoordinateInputs(); draw(); } // 設定目前選取框。
+    function renderBoxList() { $("boxList").innerHTML = state.annotations.map((annotation, index) => `<div class="box-item ${index === state.selected ? "active" : ""}" data-index="${index}">#${index + 1} bbox=[${annotation.bbox.join(", ")}] score=${Number(annotation.score || 1).toFixed(2)}</div>`).join("") || "<div class='hint'>目前沒有框。</div>"; document.querySelectorAll(".box-item").forEach(item => item.onclick = () => setSelected(parseInt(item.dataset.index, 10))); } // 重繪 bbox 清單。
+    function syncCoordinateInputs() { const box = state.annotations[state.selected]?.bbox || ["", "", "", ""]; $("x1Input").value = box[0]; $("y1Input").value = box[1]; $("x2Input").value = box[2]; $("y2Input").value = box[3]; } // 將選取框座標同步到輸入欄位。
+    function applyCoordinateInputs() { if (state.selected < 0) return; const box = [Number($("x1Input").value), Number($("y1Input").value), Number($("x2Input").value), Number($("y2Input").value)]; state.annotations[state.selected].bbox = clampBox(box); state.annotations[state.selected].polygons = [bboxToPolygon(state.annotations[state.selected].bbox)]; saveCurrentAnnotationsToCache(); renderBoxList(); syncCoordinateInputs(); draw(); } // 套用座標欄位變更。
+    function deleteSelectedBox() { if (state.selected < 0) { setStatus("請先點選要刪除的 bbox。"); return; } state.annotations.splice(state.selected, 1); state.selected = Math.min(state.selected, state.annotations.length - 1); saveCurrentAnnotationsToCache(); renderBoxList(); syncCoordinateInputs(); draw(); setStatus("已刪除選取框。"); } // 刪除目前選取框。
+    function clearBoxes() { state.annotations = []; state.selected = -1; state.manualCandidate = null; saveCurrentAnnotationsToCache(); renderBoxList(); syncCoordinateInputs(); draw(); setStatus("已清空目前圖片的標註框。"); } // 清空目前圖片標註框。
+    function setMode(mode) { state.mode = mode; state.drag = null; $("workflowModeSelect").value = mode; $("manualPanel").classList.toggle("hidden", mode !== "manual"); $("autoPanel").classList.toggle("hidden", mode !== "auto"); $("manualModeBtn").classList.toggle("active", mode === "manual"); $("autoModeBtn").classList.toggle("active", mode === "auto"); draw(); } // 切換手動 SAM 與半自動模式，並同步下拉選單與按鈕狀態。
+    async function runManualCandidate(imageX, imageY) { const record = currentImageRecord(); if (!record || !state.session) return; setStatus(`正在執行手動 SAM point=(${Math.round(imageX)}, ${Math.round(imageY)}) ...`); const result = await apiJson("/api/manual/candidate", { session_id: state.session.id, image_id: record.id, x: Math.round(imageX), y: Math.round(imageY), device_mode: $("deviceSelect").value }); state.manualCandidate = result.candidate; $("candidateStatus").textContent = result.status; setStatus(result.status); draw(); } // 送出手動 SAM 點提示。
+    function acceptCandidate() { if (!state.manualCandidate) { $("candidateStatus").textContent = "尚無可接受的候選框。"; return; } state.annotations.push(state.manualCandidate); state.selected = state.annotations.length - 1; state.manualCandidate = null; saveCurrentAnnotationsToCache(); $("candidateStatus").textContent = `已接受，目前共有 ${state.annotations.length} 個框。`; renderBoxList(); syncCoordinateInputs(); draw(); } // 接受目前 SAM 候選框。
+    async function runCurrentAuto() { const record = currentImageRecord(); if (!record || !state.session) return; const tiles = parseTiles(); setStatus(`正在執行 ${record.name} ...`); const result = await apiJson("/api/auto/run", buildAutoPayload(record, tiles)); state.annotations = result.annotations || []; state.selected = state.annotations.length ? 0 : -1; state.manualCandidate = null; state.downloads = result; saveCurrentAnnotationsToCache(); renderBoxList(); syncCoordinateInputs(); renderDownloadButtons(); draw(); setStatus(result.summary + "\n" + result.status); } // 對目前圖片執行半自動標註。
+    async function runBatchAuto() { if (!state.session || !state.images.length) return; saveCurrentAnnotationsToCache(); const tiles = parseTiles(); for (let index = 0; index < state.images.length; index++) { state.currentIndex = index; renderImageList(); loadCurrentImage(); setStatus(`批次進度 ${index + 1}/${state.images.length}: ${state.images[index].name}`); const result = await apiJson("/api/auto/run", buildAutoPayload(state.images[index], tiles)); state.annotationCache[state.images[index].id] = cloneAnnotations(result.annotations || []); state.downloads = result; renderDownloadButtons(); appendStatus(`完成 ${index + 1}/${state.images.length}`); } loadCurrentAnnotationsFromCache(); renderBoxList(); syncCoordinateInputs(); draw(); setStatus(`批次完成，共 ${state.images.length} 張。`); } // 依序對全部圖片執行半自動標註。
+    function buildAutoPayload(record, tiles) { return { session_id: state.session.id, image_id: record.id, prompt: $("promptInput").value, class_name: $("classInput").value, output_root: $("outputRootInput").value, export_format: $("formatSelect").value, device_mode: $("deviceSelect").value, rows: tiles.rows, cols: tiles.cols, box_threshold: Number($("boxThInput").value), text_threshold: Number($("textThInput").value), tile_nms_threshold: Number($("tileNmsInput").value), global_nms_threshold: Number($("globalNmsInput").value), max_detections: Number($("maxDetInput").value), min_box_area: Number($("minAreaInput").value), draw_boxes: true, draw_labels: true }; } // 建立半自動 API 請求內容，保留桌面版主要參數。
+    async function saveEdited() { const record = currentImageRecord(); if (!record || !state.session) return; saveCurrentAnnotationsToCache(); setStatus("正在儲存目前標註..."); const result = await apiJson("/api/export/image", { session_id: state.session.id, image_id: record.id, annotations: state.annotations, class_name: $("classInput").value, output_root: $("outputRootInput").value, export_format: $("formatSelect").value }); state.downloads = result; renderDownloadButtons(); setStatus(result.status); } // 儲存目前圖片標註並匯出。
+    function renderDownloadButtons() { const hasRunZip = Boolean(state.downloads.run_zip_url); const hasDatasetZip = Boolean(state.downloads.dataset_zip_url); $("downloadRunBtn").disabled = !hasRunZip; $("downloadDatasetBtn").disabled = !hasDatasetZip; $("autoDownloadRunBtn").disabled = !hasRunZip; $("autoDownloadDatasetBtn").disabled = !hasDatasetZip; $("floatDownloadRunBtn").disabled = !hasRunZip; $("floatDownloadDatasetBtn").disabled = !hasDatasetZip; } // 依照目前下載狀態啟用或停用所有下載按鈕。
+    function downloadUrl(url) { if (url) window.open(url, "_blank"); } // 開啟下載 URL。
+    canvas.addEventListener("wheel", event => { event.preventDefault(); const mouse = screenToImage(event.offsetX, event.offsetY); const factor = event.deltaY < 0 ? 1.12 : 0.88; state.scale = Math.max(0.05, Math.min(20, state.scale * factor)); const screen = imageToScreen(mouse.x, mouse.y); state.offsetX += event.offsetX - screen.x; state.offsetY += event.offsetY - screen.y; draw(); }); // 使用滑鼠滾輪縮放並以滑鼠位置為中心。
+    canvas.addEventListener("mousedown", event => { const imagePoint = screenToImage(event.offsetX, event.offsetY); if (event.shiftKey) { state.drag = { hit: { type: "pan" }, startX: event.offsetX, startY: event.offsetY, originalOffsetX: state.offsetX, originalOffsetY: state.offsetY }; return; } if (state.mode === "manual") { state.drag = { hit: { type: "manual" }, startX: event.offsetX, startY: event.offsetY, startImage: imagePoint }; return; } const hit = hitTest(event.offsetX, event.offsetY); if (hit.index !== undefined) setSelected(hit.index); state.drag = { hit, startX: event.offsetX, startY: event.offsetY, startImage: imagePoint, originalBox: hit.index !== undefined ? [...state.annotations[hit.index].bbox] : null, originalOffsetX: state.offsetX, originalOffsetY: state.offsetY, previewBox: hit.type === "create" ? clampBox([imagePoint.x, imagePoint.y, imagePoint.x, imagePoint.y]) : null }; }); // 開始手動點擊、平移、新增框、移動框或縮放框。
+    canvas.addEventListener("mousemove", event => { if (!state.drag) return; const drag = state.drag; if (drag.hit.type === "manual") return; if (drag.hit.type === "pan") { state.offsetX = drag.originalOffsetX + event.offsetX - drag.startX; state.offsetY = drag.originalOffsetY + event.offsetY - drag.startY; } else if (drag.hit.type === "create") { const current = screenToImage(event.offsetX, event.offsetY); drag.previewBox = clampBox([drag.startImage.x, drag.startImage.y, current.x, current.y]); } else { updateDraggedBox(event.offsetX, event.offsetY); } draw(); }); // 更新目前滑鼠拖曳操作。
+    canvas.addEventListener("mouseup", event => { if (!state.drag) return; if (state.drag.hit.type === "manual") { const moved = Math.hypot(event.offsetX - state.drag.startX, event.offsetY - state.drag.startY); const point = state.drag.startImage; state.drag = null; if (moved <= 6) runManualCandidate(point.x, point.y).catch(error => setStatus(error.message)); return; } if (state.drag.hit.type === "create") finishCreateBox(); saveCurrentAnnotationsToCache(); renderBoxList(); syncCoordinateInputs(); state.drag = null; draw(); }); // 結束目前拖曳操作。
+    canvas.addEventListener("mouseleave", () => { state.drag = null; draw(); }); // 滑鼠離開畫布時取消拖曳。
+    function finishCreateBox() { const box = state.drag.previewBox; if (!box) return; if (Math.abs(box[2] - box[0]) < 5 || Math.abs(box[3] - box[1]) < 5) return; state.annotations.push({ bbox: box, score: 1.0, point: null, polygons: [bboxToPolygon(box)] }); state.selected = state.annotations.length - 1; } // 完成從空白處拖曳新增 bbox。
+    function updateDraggedBox(screenX, screenY) { const drag = state.drag; const current = screenToImage(screenX, screenY); const dx = current.x - drag.startImage.x; const dy = current.y - drag.startImage.y; const box = [...drag.originalBox]; if (drag.hit.type === "move") { state.annotations[drag.hit.index].bbox = clampBox([box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]); } else { resizeBoxFromHandle(drag.hit.index, drag.hit.handle, box, current); } state.annotations[drag.hit.index].polygons = [bboxToPolygon(state.annotations[drag.hit.index].bbox)]; } // 更新移動或縮放中的 bbox。
+    function resizeBoxFromHandle(index, handle, box, point) { if (handle.includes("w")) box[0] = point.x; if (handle.includes("e")) box[2] = point.x; if (handle.includes("n")) box[1] = point.y; if (handle.includes("s")) box[3] = point.y; state.annotations[index].bbox = clampBox(box); } // 依照拖曳的調整點更新 bbox。
+    $("loadFolderBtn").onclick = () => loadFolder().catch(error => setStatus(error.message)); // 綁定載入資料夾按鈕。
+    $("uploadImagesBtn").onclick = () => uploadFromInput("uploadImages").catch(error => setStatus(error.message)); // 綁定多張圖片上傳按鈕。
+    $("uploadFolderBtn").onclick = () => uploadFromInput("uploadFolder").catch(error => setStatus(error.message)); // 綁定資料夾上傳按鈕。
+    $("prevBtn").onclick = () => { if (state.currentIndex > 0) selectImage(state.currentIndex - 1); }; // 綁定上一張按鈕。
+    $("nextBtn").onclick = () => { if (state.currentIndex < state.images.length - 1) selectImage(state.currentIndex + 1); }; // 綁定下一張按鈕。
+    $("removeImageBtn").onclick = removeCurrentImage; // 綁定刪除目前圖片按鈕。
+    $("clearBoxesBtn").onclick = clearBoxes; // 綁定清空目前標註框按鈕。
+    $("fitImageBtn").onclick = () => { fitImage(); draw(); }; // 綁定重置視圖按鈕。
+    $("manualModeBtn").onclick = () => setMode("manual"); // 綁定手動 SAM 模式按鈕。
+    $("autoModeBtn").onclick = () => setMode("auto"); // 綁定半自動模式按鈕。
+    $("workflowModeSelect").onchange = () => setMode($("workflowModeSelect").value); // 綁定工作模式下拉選單。
+    $("saveManualBtn").onclick = () => saveEdited().catch(error => setStatus(error.message)); // 綁定手動儲存按鈕。
+    $("runCurrentBtn").onclick = () => runCurrentAuto().catch(error => setStatus(error.message)); // 綁定單張半自動按鈕。
+    $("runBatchBtn").onclick = () => runBatchAuto().catch(error => setStatus(error.message)); // 綁定批次半自動按鈕。
+    $("autoDownloadRunBtn").onclick = () => downloadUrl(state.downloads.run_zip_url); // 綁定半自動單張結果下載按鈕。
+    $("autoDownloadDatasetBtn").onclick = () => downloadUrl(state.downloads.dataset_zip_url); // 綁定半自動資料集下載按鈕。
+    $("applyBoxBtn").onclick = applyCoordinateInputs; // 綁定套用座標按鈕。
+    $("deleteBoxBtn").onclick = deleteSelectedBox; // 綁定刪除選取框按鈕。
+    $("saveBtn").onclick = () => saveEdited().catch(error => setStatus(error.message)); // 綁定半自動儲存按鈕。
+    $("downloadRunBtn").onclick = () => downloadUrl(state.downloads.run_zip_url); // 綁定單張結果下載按鈕。
+    $("downloadDatasetBtn").onclick = () => downloadUrl(state.downloads.dataset_zip_url); // 綁定資料集下載按鈕。
+    window.addEventListener("keydown", event => { if (event.key === "Delete" || event.key === "Backspace") { if (document.activeElement && ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return; event.preventDefault(); deleteSelectedBox(); } if (event.key === "Escape") { state.selected = -1; renderBoxList(); syncCoordinateInputs(); draw(); } }); // 綁定鍵盤快捷鍵：Delete/Backspace 刪框，Esc 取消選取。
+    window.addEventListener("resize", resizeCanvas); // 視窗大小變更時重設 canvas。
+    ensureRequiredControls(); // 先補齊新版必要控制項。
+    bindRequiredControls(); // 綁定新版必要控制項。
+    loadConfig().then(() => { setMode("auto"); resizeCanvas(); renderBoxList(); renderDownloadButtons(); }).catch(error => setStatus(error.message)); // 初始化設定、模式、畫布與按鈕狀態。
+  </script><!-- 結束前端 JavaScript。 -->
+</body><!-- 結束文件內容區。 -->
+</html><!-- 結束 HTML 文件。 -->

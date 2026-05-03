@@ -1,0 +1,20 @@
+fastapi==0.136.1  # Provide the web API framework used by the annotation WebUI.
+uvicorn[standard]==0.46.0  # Provide the ASGI server used to run the FastAPI app.
+python-multipart==0.0.27  # Enable browser file uploads through FastAPI.
+opencv-python==4.10.0.84  # Provide OpenCV while staying compatible with NumPy 1.x in Docker.
+Pillow==12.2.0  # Provide PIL image loading and saving support.
+numpy==1.26.4  # Keep NumPy below 2.x to avoid binary compatibility issues with older vision wheels.
+torch  # Let each Dockerfile install the correct CPU or CUDA PyTorch wheel before this file is processed.
+torchvision  # Let each Dockerfile install the matching CPU or CUDA torchvision wheel before this file is processed.
+transformers==4.30.2  # Keep a GroundingDINO-compatible Transformers version that works with the selected PyTorch stack.
+timm==1.0.26  # Provide model layers used by GroundingDINO.
+pycocotools==2.0.11  # Provide COCO utility support for GroundingDINO and export formats.
+matplotlib==3.10.9  # Provide plotting dependencies expected by the model stack.
+PyYAML==6.0.3  # Provide YAML config parsing support.
+addict==2.4.0  # Provide config object helpers expected by GroundingDINO.
+yapf==0.43.0  # Provide formatting dependency expected by GroundingDINO config loading.
+supervision==0.27.0.post2  # Provide annotation and detection helper utilities.
+huggingface_hub==0.36.2  # Provide Hugging Face tokenizer/model download support.
+scipy==1.15.3  # Provide scientific utilities used by the installed vision stack.
+safetensors==0.7.0  # Provide safe tensor file support for Hugging Face dependencies.
+tokenizers==0.13.3  # Pin the tokenizer backend to match the selected Transformers version.

@@ -1,0 +1,49 @@
+# Define Docker Compose services for CPU and GPU WebUI deployments.
+services:
+  # Build and run the CPU-only WebUI service.
+  webui-cpu:
+    # Build the CPU image from the current WebUI project folder.
+    build:
+      # Use the current folder as the Docker build context.
+      context: .
+      # Use the CPU-specific Dockerfile.
+      dockerfile: Dockerfile.cpu
+    # Name the CPU container predictably for local development.
+    container_name: grounded-sam-web-cpu
+    # Map the container FastAPI port to localhost port 8011.
+    ports:
+      - "8011:8000"
+    # Persist generated outputs outside the container.
+    volumes:
+      # Mount local model weights into the container at runtime.
+      - ./weights:/app/weights
+      - ./outputs:/app/outputs
+    # Restart only when Docker or the user explicitly restarts the service.
+    restart: "no"
+
+  # Build and run the NVIDIA GPU-capable WebUI service.
+  webui-gpu:
+    # Build the GPU image from the current WebUI project folder.
+    build:
+      # Use the current folder as the Docker build context.
+      context: .
+      # Use the GPU-specific Dockerfile.
+      dockerfile: Dockerfile.gpu
+      # Pass CUDA architecture targets into GroundingDINO CUDA extension compilation.
+      args:
+        # Include GTX 1650 Ti Laptop compute capability 7.5 plus common newer NVIDIA architectures.
+        TORCH_CUDA_ARCH_LIST: "7.5;8.0;8.6;8.9"
+    # Name the GPU container predictably for local development.
+    container_name: grounded-sam-web-gpu
+    # Request all available NVIDIA GPUs from Docker.
+    gpus: all
+    # Map the container FastAPI port to localhost port 8011.
+    ports:
+      - "8011:8000"
+    # Persist generated outputs outside the container.
+    volumes:
+      # Mount local model weights into the container at runtime.
+      - ./weights:/app/weights
+      - ./outputs:/app/outputs
+    # Restart only when Docker or the user explicitly restarts the service.
+    restart: "no"
