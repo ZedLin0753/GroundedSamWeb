@@ -1,59 +1,94 @@
-# THIRD_PARTY_NOTICES
+# Third-Party Notices
 
-This project includes or depends on third-party open-source software.
+This project includes application code written for this WebUI and selected third-party open-source components required for the GroundingDINO + SAM annotation workflow.
 
-The list below is a practical notice summary for portfolio and repository use.
+This notice is intended for attribution and portfolio transparency. It is not legal advice. Review the upstream licenses before commercial distribution.
 
-It is not a substitute for reviewing the original upstream licenses before commercial distribution.
+## Project Scope
 
-## Core Components
+The original application work in this repository includes the FastAPI WebUI, canvas annotation workflow, Docker packaging, export utilities, and integration glue around the model pipeline.
 
-### 1. Grounded-Segment-Anything
+The core model implementations are third-party projects listed below.
 
-- Project: `Grounded-Segment-Anything`
-- Role in this project: prompt-based candidate generation and segmentation workflow reference
-- Upstream repository path in this workspace: [D:\work\GroundedSam](D:/work/GroundedSam)
-- Observed license in local repository: `Apache License 2.0`
+## Included Source Code
 
-### 2. GroundingDINO
+### GroundingDINO
 
-- Project: `GroundingDINO`
-- Role in this project: open-vocabulary text-prompt object proposal generation
-- Upstream repository path in this workspace: [D:\work\GroundedSam\GroundingDINO](D:/work/GroundedSam/GroundingDINO)
-- Observed license in local repository: `Apache License 2.0`
+- Upstream repository: <https://github.com/IDEA-Research/GroundingDINO>
+- Local path: `GroundingDINO/`
+- License: Apache License 2.0
+- Local license file: `GroundingDINO/LICENSE`
+- Role in this project: open-vocabulary text-prompt object proposal generation.
 
-### 3. Segment Anything
+### Segment Anything
 
-- Project: `Segment Anything`
-- Role in this project: mask refinement, manual point-based segmentation, and automatic mask generation
-- Upstream repository path in this workspace: [D:\work\GroundedSam\segment_anything](D:/work/GroundedSam/segment_anything)
-- Observed license in local repository: `Apache License 2.0`
+- Upstream repository: <https://github.com/facebookresearch/segment-anything>
+- Local path: `segment_anything/`
+- License: Apache License 2.0
+- Local license file: `segment_anything/LICENSE`
+- Role in this project: SAM model loading, point-prompt mask prediction, and mask utility code.
 
-## Runtime / Library Dependencies
+## Referenced Workflow
 
-This project also uses common Python libraries and frameworks such as:
+### Grounded-Segment-Anything
 
-- `PyTorch`
-- `torchvision`
-- `Gradio`
-- `NumPy`
-- `OpenCV`
-- `Pillow`
-- `supervision`
+- Upstream repository: <https://github.com/IDEA-Research/Grounded-Segment-Anything>
+- License: Apache License 2.0
+- Role in this project: reference workflow for combining GroundingDINO-style prompt detection with SAM-style segmentation.
+- Note: this repository does not claim ownership of the Grounded-Segment-Anything project or its upstream model components.
 
-Their licenses should also be reviewed if this tool is redistributed publicly, packaged into Docker images, or delivered to third parties.
+## Model Checkpoints
 
-## Recommendation Before Public Release
+The model checkpoint files are intentionally not committed to this repository.
 
-Before publishing this project publicly or distributing a packaged version, it is a good idea to:
+Required checkpoint names:
 
-1. keep the original upstream license files where required
-2. review the licenses of all Python dependencies in the final environment
-3. document model checkpoints and their upstream source
-4. include attribution and notice files in the repository or container image
+```text
+weights/groundingdino_swint_ogc.pth
+weights/sam_vit_b_01ec64.pth
+```
+
+Download sources:
+
+- GroundingDINO Swin-T OGC checkpoint: <https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth>
+- SAM ViT-B checkpoint: <https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth>
+
+Checkpoint usage may be subject to upstream model terms, dataset terms, or research-use expectations. Review the upstream project documentation before redistribution or commercial use.
+
+## Python And Runtime Dependencies
+
+This project also depends on common Python packages and runtime components, including but not limited to:
+
+- FastAPI
+- Uvicorn
+- PyTorch
+- torchvision
+- Transformers
+- timm
+- NumPy
+- OpenCV
+- Pillow
+- pycocotools
+- supervision
+- Hugging Face Hub
+
+Package versions are listed in `requirements.txt`. Their licenses are governed by their own upstream projects.
+
+## Non-Affiliation
+
+This project is an independent integration and annotation tool.
+
+It is not affiliated with, endorsed by, or officially maintained by:
+
+- Meta AI
+- Facebook Research
+- IDEA Research
+- the GroundingDINO maintainers
+- the Segment Anything maintainers
+- the Grounded-Segment-Anything maintainers
 
 ## AI-Assisted Development Note
 
-This repository also documents AI-assisted development as part of the engineering workflow.
+This repository was developed with AI-assisted programming support as part of the engineering workflow.
 
-That statement is about authorship transparency and does not replace any upstream license obligations.
+That statement is included for authorship transparency. It does not replace attribution, license compliance, or model checkpoint usage obligations.

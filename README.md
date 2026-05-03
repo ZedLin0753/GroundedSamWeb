@@ -2,7 +2,9 @@
 
 FastAPI + Canvas WebUI for semi-automatic annotation with `GroundingDINO + SAM`.
 
-This folder is the Web edition only. The Qt desktop edition is kept separately in `D:\work\GroundedSamDesktop`.
+This repository is the WebUI edition of a semi-automatic annotation workflow. It focuses on packaging prompt-assisted detection, manual bounding-box correction, SAM-assisted annotation, export, and Docker deployment into one practical tool.
+
+This is an independent integration project. It is not an official GroundingDINO, Segment Anything, Meta AI, or IDEA Research project.
 
 ## Features
 
@@ -13,6 +15,18 @@ This folder is the Web edition only. The Qt desktop edition is kept separately i
 - Use manual SAM point prompts when semi-automatic detection is not good enough.
 - Export detection labels in YOLO / COCO-oriented formats.
 - Download current-image results or the whole dataset result.
+
+## What I Built
+
+This repository focuses on the application layer around existing foundation models:
+
+- FastAPI backend endpoints for dataset loading, inference, manual SAM prompts, annotation export, and downloads.
+- Canvas-based browser UI for zooming, panning, creating boxes, dragging boxes, resizing boxes, deleting boxes, and saving annotations.
+- Tile-based GroundingDINO + SAM workflow for difficult high-resolution images.
+- YOLO / COCO-oriented export utilities.
+- CPU and GPU Docker packaging.
+
+The foundation models themselves are third-party open-source projects listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Required Files
 
@@ -47,6 +61,25 @@ Download links:
 - `sam_vit_b_01ec64.pth`: [Segment Anything checkpoint](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth)
 
 The checkpoint files are intentionally not committed to GitHub because they are large model binaries. Put them in `weights/` before running inference.
+
+## Third-Party Code And Attribution
+
+This repository includes vendored copies of selected upstream source code so the tool can run in a reproducible way:
+
+- `GroundingDINO/`: based on [IDEA-Research/GroundingDINO](https://github.com/IDEA-Research/GroundingDINO), Apache License 2.0.
+- `segment_anything/`: based on [facebookresearch/segment-anything](https://github.com/facebookresearch/segment-anything), Apache License 2.0.
+
+This project was also informed by the Grounded-Segment-Anything workflow:
+
+- [IDEA-Research/Grounded-Segment-Anything](https://github.com/IDEA-Research/Grounded-Segment-Anything), Apache License 2.0.
+
+The full attribution summary is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Original upstream license files are kept inside the vendored source folders where applicable.
+
+## AI-Assisted Development Disclosure
+
+Parts of this project were developed with AI-assisted programming support. The project owner was responsible for directing the workflow, testing the tool, making design decisions, integrating the model pipeline, and validating the final behavior.
+
+This disclosure is included for transparency. It does not change the third-party license obligations for GroundingDINO, Segment Anything, Grounded-Segment-Anything, model checkpoints, or Python dependencies.
 
 ## Run Without Docker
 
