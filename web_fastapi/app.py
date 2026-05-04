@@ -3,7 +3,7 @@ import shutil  # Use shutil for copying uploaded files into isolated session fol
 import sys  # Use sys so this web package can import the repository-level backend module.
 from uuid import uuid4  # Use uuid4 to create collision-resistant session identifiers.
 
-from fastapi import FastAPI, File, HTTPException, UploadFile  # Import FastAPI primitives for the web API.
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # Import FastAPI primitives for the web API.
 from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware so local frontend requests stay simple.
 from fastapi.responses import FileResponse  # Import FileResponse so images and zip files can be downloaded directly.
 from fastapi.responses import HTMLResponse  # Import HTMLResponse so the root page can be served with explicit no-cache headers.
@@ -24,6 +24,9 @@ WEB_ROOT = Path(__file__).resolve().parent  # Resolve the folder that contains t
 STATIC_ROOT = WEB_ROOT / "static"  # Resolve the static frontend folder served by FastAPI.
 SESSION_ROOT = backend.DEFAULT_OUTPUT_ROOT / "fastapi_web_sessions"  # Store web sessions under the existing output root.
 SUPPORTED_IMAGE_SUFFIXES = backend.SUPPORTED_IMAGE_SUFFIXES  # Reuse the backend-supported image suffix set.
+SUPPORTED_VIDEO_SUFFIXES = {
+    ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".m4v"
+}
 SESSIONS = {}  # Keep lightweight in-memory session metadata for this single-process local tool.
 DOWNLOADS = {}  # Keep generated download paths behind opaque tokens instead of exposing arbitrary filesystem paths.
 
@@ -113,6 +116,64 @@ def np_array_label() -> np.ndarray:  # Define a helper that builds a SAM foregro
 def make_public_image_record(session_id: str, image_path: Path) -> dict:  # Define a helper that converts an image path into a browser-facing metadata record.
     image_id = image_path.stem + "_" + uuid4().hex[:8]  # Build a short id that avoids collisions for duplicate filenames.
     return {"id": image_id, "name": image_path.name, "path": str(image_path), "url": f"/api/image/{session_id}/{image_id}"}  # Return the browser-safe image record.
+
+
+def extract_video_frames_to_images(
+    video_path: Path,
+    output_folder: Path,
+    frame_stride: int,
+    max_frames: int = 0,
+) -> list[Path]:
+    """
+    從影片中每 frame_stride 幀擷取一張圖片，存成 jpg 後回傳圖片路徑清單。
+
+    例如：
+    frame_stride = 30
+    代表第 0, 30, 60, 90... 幀會被擷取出來。
+    """
+
+    frame_stride = max(1, int(frame_stride))
+    max_frames = max(0, int(max_frames))
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    cap = cv2.VideoCapture(str(video_path))
+
+    if not cap.isOpened():
+        raise HTTPException(status_code=400, detail="Video could not be opened.")
+
+    saved_paths = []
+    frame_index = 0
+    saved_index = 0
+
+    video_stem = video_path.stem
+
+    while True:
+        ok, frame = cap.read()
+
+        if not ok:
+            break
+
+        if frame_index % frame_stride == 0:
+            image_path = output_folder / f"{video_stem}_frame_{frame_index:06d}.jpg"
+
+            success = cv2.imwrite(str(image_path), frame)
+
+            if success:
+                saved_paths.append(image_path)
+                saved_index += 1
+
+            if max_frames > 0 and saved_index >= max_frames:
+                break
+
+        frame_index += 1
+
+    cap.release()
+
+    if not saved_paths:
+        raise HTTPException(status_code=400, detail="No frames were extracted from the video.")
+
+    return saved_paths
 
 
 def create_session_from_paths(image_paths: list[Path]) -> dict:  # Define a helper that creates one isolated web session from existing image paths.
@@ -260,6 +321,51 @@ async def upload_dataset(files: list[UploadFile] = File(...)) -> dict:  # Define
     if not copied_paths:  # Reject uploads that contained no supported images.
         raise HTTPException(status_code=400, detail="No supported images were uploaded.")  # Return a clear API error for empty uploads.
     return create_session_from_paths(copied_paths)  # Create and return a dataset session from saved uploads.
+
+
+@app.post("/api/dataset/video-frames")
+async def upload_video_and_extract_frames(
+    video: UploadFile = File(...),
+    frame_stride: int = Form(30),
+    max_frames: int = Form(0),
+) -> dict:
+    """
+    上傳影片並依照 frame_stride 抽幀，抽出的圖片會直接建立成 WebUI session。
+    """
+
+    ensure_session_root()
+
+    original_name = Path(video.filename or "uploaded_video.mp4").name
+    suffix = Path(original_name).suffix.lower()
+
+    if suffix not in SUPPORTED_VIDEO_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported video format: {suffix}",
+        )
+
+    if frame_stride < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="frame_stride must be >= 1.",
+        )
+
+    video_session = SESSION_ROOT / ("video_" + uuid4().hex)
+    video_session.mkdir(parents=True, exist_ok=True)
+
+    video_path = video_session / f"input_video{suffix}"
+    video_path.write_bytes(await video.read())
+
+    frames_folder = video_session / "extracted_frames"
+
+    extracted_paths = extract_video_frames_to_images(
+        video_path=video_path,
+        output_folder=frames_folder,
+        frame_stride=frame_stride,
+        max_frames=max_frames,
+    )
+
+    return create_session_from_paths(extracted_paths)
 
 
 @app.get("/api/image/{session_id}/{image_id}")  # Register the endpoint that serves dataset images to the canvas.

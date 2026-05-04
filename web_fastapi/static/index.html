@@ -65,6 +65,19 @@
       <label>選擇整個資料夾 Upload a folder</label><!-- 標示資料夾上傳欄位。 -->
       <input id="uploadFolder" type="file" multiple webkitdirectory directory accept="image/*"><!-- 讓使用者選擇整個資料夾。 -->
       <button id="uploadFolderBtn" class="secondary">上傳資料夾</button><!-- 上傳使用者選取的資料夾內容。 -->
+      <label>選擇影片 Upload video</label>
+      <input id="uploadVideo" type="file" accept="video/*">
+      <div class="row">
+        <div>
+          <label>每幾幀擷取一張 Frame stride</label>
+          <input id="frameStrideInput" type="number" min="1" value="30">
+        </div>
+        <div>
+          <label>最多擷取張數 Max frames</label>
+          <input id="maxFramesInput" type="number" min="0" value="0">
+        </div>
+      </div>
+      <button id="uploadVideoBtn" class="secondary">上傳影片並抽幀</button>
       <p class="hint">遠端使用者可以上傳自己電腦的圖片；伺服器端資料夾只讀取執行程式那台電腦的路徑。</p><!-- 說明本機路徑與遠端上傳的差異。 -->
       <div id="datasetStatus" class="hint">尚未載入資料集。</div><!-- 顯示目前資料集狀態。 -->
       <div class="quick-actions"><!-- 開始資料集快捷操作列。 -->
@@ -240,6 +253,58 @@
     $("loadFolderBtn").onclick = () => loadFolder().catch(error => setStatus(error.message)); // 綁定載入資料夾按鈕。
     $("uploadImagesBtn").onclick = () => uploadFromInput("uploadImages").catch(error => setStatus(error.message)); // 綁定多張圖片上傳按鈕。
     $("uploadFolderBtn").onclick = () => uploadFromInput("uploadFolder").catch(error => setStatus(error.message)); // 綁定資料夾上傳按鈕。
+    $("uploadVideoBtn").onclick = async () => { // 綁定影片上傳並抽幀按鈕。
+      const fileInput = $("uploadVideo"); // 取得影片 input。
+
+      if (!fileInput.files || fileInput.files.length === 0) { // 檢查是否有選影片。
+        setStatus("請先選擇一個影片檔。"); // 沒有選影片就提示。
+        return; // 結束函式。
+      }
+
+      const frameStride = Math.max(1, parseInt($("frameStrideInput").value || "30", 10)); // 每幾幀擷取一張，最小為 1。
+      const maxFrames = Math.max(0, parseInt($("maxFramesInput").value || "0", 10)); // 最多擷取張數，0 代表不限制。
+
+      const formData = new FormData(); // 建立上傳表單。
+      formData.append("video", fileInput.files[0]); // 放入影片檔。
+      formData.append("frame_stride", String(frameStride)); // 放入抽幀間隔。
+      formData.append("max_frames", String(maxFrames)); // 放入最多擷取張數。
+
+      setStatus(`正在上傳影片並抽幀...\n每 ${frameStride} 幀擷取 1 張。`); // 顯示目前狀態。
+
+      try {
+        const response = await fetch("/api/dataset/video-frames", { // 呼叫後端影片抽幀 API。
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) { // 如果 API 回傳失敗。
+          const errorText = await response.text(); // 讀取錯誤訊息。
+          throw new Error(errorText); // 丟出錯誤。
+        }
+
+        const session = await response.json(); // 取得後端回傳的 session。
+
+        state.session = session.id; // 記錄目前 session id。
+        state.images = session.images || []; // 記錄抽出的圖片清單。
+        state.currentIndex = state.images.length > 0 ? 0 : -1; // 預設選第一張。
+        state.annotationCache = {}; // 清空舊標註快取。
+        state.annotations = []; // 清空目前標註。
+        state.selected = -1; // 清空選取框。
+        state.manualCandidate = null; // 清空 SAM 候選框。
+
+        renderImageList(); // 更新左側圖片清單。
+
+        if (state.currentIndex >= 0) { // 如果有圖片。
+          await loadCurrentImage(); // 載入目前圖片到 canvas。
+        }
+
+        $("datasetStatus").textContent = `已從影片抽出 ${state.images.length} 張圖片。`; // 更新資料集狀態。
+        setStatus(`影片抽幀完成，共 ${state.images.length} 張圖片。`); // 更新狀態欄。
+      } catch (err) {
+        console.error(err); // 印出錯誤方便 debug。
+        setStatus("影片抽幀失敗：\n" + err.message); // 顯示錯誤。
+      }
+    };
     $("prevBtn").onclick = () => { if (state.currentIndex > 0) selectImage(state.currentIndex - 1); }; // 綁定上一張按鈕。
     $("nextBtn").onclick = () => { if (state.currentIndex < state.images.length - 1) selectImage(state.currentIndex + 1); }; // 綁定下一張按鈕。
     $("removeImageBtn").onclick = removeCurrentImage; // 綁定刪除目前圖片按鈕。
