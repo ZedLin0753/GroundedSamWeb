@@ -77,11 +77,14 @@ class ExportRequest(BaseModel):  # Define the request shape for saving edited an
 
 
 class ManualCandidateRequest(BaseModel):  # Define the request shape for one manual SAM point prompt.
-    session_id: str  # Store the active browser session id.
-    image_id: str  # Store the selected image id inside the session.
-    x: int  # Store the clicked image-space x coordinate.
-    y: int  # Store the clicked image-space y coordinate.
-    device_mode: str = "auto"  # Store the requested device mode for classic SAM.
+    session_id: str | None = None
+    image_id: str | None = None
+    sessionId: str | None = None
+    imageId: str | None = None
+    x: float
+    y: float
+    device_mode: str = "auto"
+    deviceMode: str | None = None
 
 
 def ensure_session_root() -> None:  # Define a helper that creates the session root before session writes.
@@ -390,23 +393,84 @@ def run_auto(request: AutoRunRequest) -> dict:  # Define the semi-automatic endp
 
 @app.post("/api/manual/candidate")  # Register the endpoint that runs classic SAM from one clicked point.
 def run_manual_candidate(request: ManualCandidateRequest) -> dict:  # Define the manual SAM candidate endpoint implementation.
-    image_record = get_image_record(request.session_id, request.image_id)  # Resolve the selected image record.
-    image_rgb = cv2_read_rgb(image_record["path"])  # Load the selected image as an RGB array.
-    image_height, image_width = image_rgb.shape[:2]  # Read the image dimensions for click validation.
-    if request.x < 0 or request.y < 0 or request.x >= image_width or request.y >= image_height:  # Reject clicks outside the image.
-        raise HTTPException(status_code=400, detail="Clicked point is outside the image.")  # Return a clear API error for invalid clicks.
-    _, predictor = backend.get_manual_sam_bundle(backend.DEFAULT_SAM_CHECKPOINT, backend.DEFAULT_SAM_ENCODER, request.device_mode)  # Load or reuse the classic SAM predictor.
-    predictor.set_image(image_rgb)  # Set the current image in SAM before predicting masks.
-    input_point = np_array_point(request.x, request.y)  # Build the SAM foreground point coordinate array.
-    input_label = np_array_label()  # Build the SAM foreground point label array.
-    masks, scores, _ = predictor.predict(point_coords=input_point, point_labels=input_label, multimask_output=True)  # Run SAM with multimask output.
-    best_index = int(scores.argmax())  # Pick the highest-scoring SAM mask.
-    best_mask = masks[best_index]  # Read the best mask from the prediction result.
-    bbox = backend.mask_to_bbox(best_mask)  # Convert the best mask into a tight bbox.
-    if bbox is None:  # Reject empty masks that cannot produce an annotation.
-        raise HTTPException(status_code=422, detail="SAM did not produce a usable mask.")  # Return a clear API error for unusable SAM output.
-    annotation = {"bbox": [int(value) for value in bbox], "score": float(scores[best_index]), "point": [int(request.x), int(request.y)], "polygons": backend.mask_to_polygons(best_mask)}  # Build one editable annotation from the SAM result.
-    return {"candidate": normalize_annotation(annotation), "status": f"SAM candidate score={float(scores[best_index]):.4f}, bbox={bbox}"}  # Return the candidate for browser-side acceptance.
+    session_id = request.session_id or request.sessionId
+    image_id = request.image_id or request.imageId
+    device_mode = request.device_mode or request.deviceMode or "auto"
+
+    if not session_id or not image_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Missing session_id/image_id. "
+                f"request={request.model_dump()}"
+            ),
+        )
+
+    click_x = int(round(float(request.x)))
+    click_y = int(round(float(request.y)))
+
+    image_record = get_image_record(session_id, image_id)
+    image_rgb = cv2_read_rgb(image_record["path"])
+    image_height, image_width = image_rgb.shape[:2]
+
+    print("=" * 80)
+    print("Manual SAM request")
+    print("image path:", image_record["path"])
+    print("image size:", image_width, image_height)
+    print("clicked x, y:", click_x, click_y)
+    print("device:", device_mode)
+    print("=" * 80)
+
+    if click_x < 0 or click_y < 0 or click_x >= image_width or click_y >= image_height:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Clicked point is outside the image. click=({click_x}, {click_y}), image=({image_width}, {image_height})",
+        )
+
+    _, predictor = backend.get_manual_sam_bundle(
+        backend.DEFAULT_SAM_CHECKPOINT,
+        backend.DEFAULT_SAM_ENCODER,
+        device_mode,
+    )
+
+    predictor.set_image(image_rgb)
+
+    input_point = np_array_point(click_x, click_y)
+    input_label = np_array_label()
+
+    masks, scores, _ = predictor.predict(
+        point_coords=input_point,
+        point_labels=input_label,
+        multimask_output=True,
+    )
+
+    print("SAM scores:", scores)
+
+    best_index = int(scores.argmax())
+    best_mask = masks[best_index]
+
+    bbox = backend.mask_to_bbox(best_mask)
+
+    print("best index:", best_index)
+    print("bbox:", bbox)
+
+    if bbox is None:
+        raise HTTPException(
+            status_code=422,
+            detail="SAM did not produce a usable mask.",
+        )
+
+    annotation = {
+        "bbox": [int(value) for value in bbox],
+        "score": float(scores[best_index]),
+        "point": [click_x, click_y],
+        "polygons": backend.mask_to_polygons(best_mask),
+    }
+
+    return {
+        "candidate": normalize_annotation(annotation),
+        "status": f"SAM candidate score={float(scores[best_index]):.4f}, bbox={bbox}",
+    }
 
 
 @app.post("/api/export/image")  # Register the endpoint that saves edited annotations for one image.

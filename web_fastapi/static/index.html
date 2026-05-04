@@ -284,7 +284,7 @@
 
         const session = await response.json(); // 取得後端回傳的 session。
 
-        state.session = session.id; // 記錄目前 session id。
+        state.session = session; // 記錄目前 session id。
         state.images = session.images || []; // 記錄抽出的圖片清單。
         state.currentIndex = state.images.length > 0 ? 0 : -1; // 預設選第一張。
         state.annotationCache = {}; // 清空舊標註快取。
