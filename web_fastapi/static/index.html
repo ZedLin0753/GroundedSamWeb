@@ -37,7 +37,7 @@
     .download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }/* 設定下載按鈕列。 */
     .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }/* 設定快捷操作按鈕列。 */
     .canvas-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }/* 設定畫布下方的 bbox 快捷操作按鈕列。 */
-    .floating-toolbar { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 99999; display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; padding: 12px; background: rgba(16, 32, 39, .94); border: 2px solid #f59e0b; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }/* 固定在畫面底部的操作列，避免按鈕被捲動位置藏住。 */
+    .floating-toolbar { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 99999; display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; padding: 12px; background: rgba(16, 32, 39, .94); border: 2px solid #f59e0b; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }/* 固定在畫面底部的操作列，避免按鈕被捲動位置藏住。 */
     .floating-toolbar button { min-height: 46px; font-size: 16px; background: transparent !important; color: #ffffff !important; border-color: transparent !important; }/* 統一底部浮動操作列按鈕字體顏色與底色。 */
     .floating-toolbar button:hover:not(:disabled) { background: rgba(255, 255, 255, .12) !important; color: #ffffff !important; }/* 統一浮動操作列 hover 狀態。 */
     .floating-toolbar button:disabled { background: rgba(255, 255, 255, .16) !important; color: #ffffff !important; opacity: .45; }/* 統一浮動操作列 disabled 狀態，避免黑字看不清楚。 */
@@ -178,6 +178,8 @@
     </section><!-- 結束右側操作面板。 -->
   </main><!-- 結束主版面。 -->
   <div class="floating-toolbar"><!-- 開始固定浮動操作列。 -->
+    <button id="floatPrevBtn" class="secondary" type="button">上一張</button>
+    <button id="floatNextBtn" class="secondary" type="button">下一張</button>
     <button id="floatRemoveImageBtn" class="danger" type="button">刪除目前圖片</button><!-- 從目前資料集中移除當前圖片。 -->
     <button id="floatClearDatasetBtn" class="danger" type="button">清空資料集</button><!-- 清空整個前端資料集。 -->
     <button id="floatAcceptCandidateBtn" class="warning" type="button">接受候選框</button><!-- 從浮動工具列接受目前 SAM 候選框。 -->
@@ -307,6 +309,8 @@
     };
     $("prevBtn").onclick = () => { if (state.currentIndex > 0) selectImage(state.currentIndex - 1); }; // 綁定上一張按鈕。
     $("nextBtn").onclick = () => { if (state.currentIndex < state.images.length - 1) selectImage(state.currentIndex + 1); }; // 綁定下一張按鈕。
+    $("floatPrevBtn").onclick = () => $("prevBtn").click(); // 浮動工具列上一張，沿用原本上一張按鈕邏輯。
+    $("floatNextBtn").onclick = () => $("nextBtn").click(); // 浮動工具列下一張，沿用原本下一張按鈕邏輯。
     $("removeImageBtn").onclick = removeCurrentImage; // 綁定刪除目前圖片按鈕。
     $("clearBoxesBtn").onclick = clearBoxes; // 綁定清空目前標註框按鈕。
     $("fitImageBtn").onclick = () => { fitImage(); draw(); }; // 綁定重置視圖按鈕。
