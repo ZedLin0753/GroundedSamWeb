@@ -577,7 +577,11 @@ def copy_source_image_to_run(source_image_path, output_root):  # Define a helper
     source_path = Path(str(source_image_path))  # Convert the current source-image path into a Path object.
     output_root = Path(str(output_root))  # Convert the current run output-root path into a Path object.
     output_root.mkdir(parents=True, exist_ok=True)  # Create the current run output folder if it does not already exist.
-    target_path = output_root / source_path.name  # Build the copied-image path inside the current run folder using the original source filename.
+    safe_name = source_path.name.encode("ascii", errors="ignore").decode("ascii")
+    safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in safe_name)
+    safe_name = safe_name.strip("_") or f"image{source_path.suffix.lower()}"
+
+    target_path = output_root / safe_name  # Build the copied-image path inside the current run folder using the original source filename.
     shutil.copy2(source_path, target_path)  # Copy the current source image into the current run folder while preserving its original filename.
     return target_path  # Return the copied-image path to the caller.
 
@@ -586,7 +590,12 @@ def run_grounded_pipeline_for_path(source_image_path, prompt, class_name, output
     source_path = Path(str(source_image_path))  # Convert the current source-image path into a Path object.
     run_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Build one timestamp string so every semi-automatic run gets its own output folder.
     base_output_root = normalize_output_root(output_root_text)  # Resolve the requested output-root path into one safe absolute folder.
-    run_folder = base_output_root / f"{source_path.stem}_{run_stamp}"  # Build the current run folder underneath the requested output-root folder.
+    safe_stem = f"{source_path.parent.name}_{source_path.stem}"
+    safe_stem = safe_stem.encode("ascii", errors="ignore").decode("ascii")
+    safe_stem = "".join(ch if ch.isalnum() or ch in "_-" else "_" for ch in safe_stem)
+    safe_stem = safe_stem.strip("_") or "image"
+
+    run_folder = base_output_root / f"{safe_stem}_{run_stamp}"  # Build the current run folder underneath the requested output-root folder.
     copied_image_path = copy_source_image_to_run(source_path, run_folder)  # Copy the current source image into the current run folder before processing.
     args = build_args(image_path=copied_image_path, prompt=prompt, rows=rows, cols=cols, box_threshold=box_threshold, text_threshold=text_threshold, nms_threshold=tile_nms_threshold, max_detections=max_detections, min_box_area=min_box_area, output_root=run_folder, device_mode=device_mode)  # Build the shared runner namespace from the current settings.
     tile_rows, _ = crop_tiles(image_path=copied_image_path, rows=int(rows), cols=int(cols), output_root=run_folder)  # Generate the requested tile grid for the current source image.
